@@ -1,6 +1,0 @@
-{
-   "name" : "JMS",
-   "baseType" : "EXTENSION",
-   "verticle" : "service:extensionSource",
-   "config" : {}
-}

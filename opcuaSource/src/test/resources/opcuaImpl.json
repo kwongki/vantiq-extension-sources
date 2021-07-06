@@ -1,6 +1,0 @@
-{
-   "name" : "OPCUA",
-   "baseType" : "EXTENSION",
-   "verticle" : "service:extensionSource",
-   "config" : {}
-}
