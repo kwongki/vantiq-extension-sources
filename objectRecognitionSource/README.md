@@ -1,5 +1,9 @@
 ## Overview
 
+
+**Note: This forked branch was updated with older version codes from extjsdk before the upgrade to okhttp3 version**
+**Use only for PrimusTech COC project. Code to be migrated to latest version of extjsdk** 
+
 The following documentation outlines how to incorporate an Object Recognition Source as part of your VANTIQ project. This allows a user to store and process data with VANTIQ, all of which is collected by analyzing images/videos using any Tensorflow-compatible Neural Network. 
 
 This implementation of the Object Recognition Source includes built-in functionality for the YOLO Processor, though any Tensorflow-compatible neural network can be used by implementing the NeuralNetInterface. Additionally, this implementation includes functionality to retrieve four different types of images:

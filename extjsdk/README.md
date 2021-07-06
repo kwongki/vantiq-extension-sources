@@ -1,5 +1,8 @@
 ## Repository Contents
 
+**Note: This forked branch was updated with older version codes from extjsdk before the upgrade to okhttp3 version**
+**Use only for PrimusTech COC project. Code to be migrated to latest version of extjsdk** 
+
 *	[ExtensionWebSocketClient](#client) -- Acts as a translator between Vantiq and the generic source. Formats and sends
 messages to Vantiq.
 *	[ExtensionWebSocketListener](#listener) -- A listener for the Vantiq deployment. Translates Vantiq messages before

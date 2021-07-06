@@ -1,13 +1,16 @@
 # Overview
 
-This document outlines the Test Connector. This connector is used primarily for testing the Connector Deployment tools 
-in the Vantiq server, but it is also a reasonable model for creating new connectors. It offers the ability to retrieve 
-data from files or environment variables, which can be done either via publish/select requests, or by setting source 
-configurations to poll for data from files.
+**Note: This forked branch was updated with older version codes from extjsdk before the upgrade to okhttp3 version**
+**Use only for PrimusTech COC project. Code to be migrated to latest version of extjsdk** 
 
-To incorporate this Enterprise Connector (also known as an Extension Source), you will need to create the Source in the 
-Vantiq system. The documentation has been split into two parts, [Setting Up Your Machine](#machine) and 
-[Setting Up Your Vantiq Source](#vantiq).
+
+This document outlines the SenseLink Connector. 
+
+
+_The rest to be updated...._
+
+
+
 
 # Prerequisites <a name="pre" id="pre"></a>
 
