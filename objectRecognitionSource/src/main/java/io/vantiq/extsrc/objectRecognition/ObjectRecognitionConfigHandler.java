@@ -135,6 +135,9 @@ public class ObjectRecognitionConfigHandler extends Handler<ExtensionServiceMess
             
             @Override
             public void handleMessage(ExtensionServiceMessage message) {
+                //CKK - Added 11-06-2021
+                //log.info("CKK: Inside handleMessage of ObjectRecognitionConfigHandler.queryHandler .... ");
+
                 // Should never happen, but just in case something changes in the backend
                 if ( !(message.getObject() instanceof Map) ) {
                     String replyAddress = ExtensionServiceMessage.extractReplyAddress(message);
@@ -155,6 +158,7 @@ public class ObjectRecognitionConfigHandler extends Handler<ExtensionServiceMess
                 
                 // Check value of operation, proceed accordingly
                 if (operation.equals(UPLOAD)) {
+                    //log.info("CKK: uploading Local Images .... ");
                     source.uploadLocalImages(request, replyAddress);
                 } else if (operation.equals(DELETE)) {
                     source.deleteLocalImages(request, replyAddress);
@@ -203,6 +207,8 @@ public class ObjectRecognitionConfigHandler extends Handler<ExtensionServiceMess
         Map<String, Object> neuralNetConfig;
         Map<String, ?> postProcessorConfig;
         
+        log.info("CKK:: handleMessage() for ObjectRecognitionConfigHandler .... ");
+
         // Obtain the Maps for each object
         if ( !(config.get(CONFIG) instanceof Map && ((Map)config.get(CONFIG)).get(OBJ_REC_CONFIG) instanceof Map) ) {
             log.error("No configuration suitable for an objectRecognition. Waiting for valid config...");
@@ -310,7 +316,7 @@ public class ObjectRecognitionConfigHandler extends Handler<ExtensionServiceMess
         
         // Setting the outputDir value for the core, (null if it does not exist)
         source.outputDir = (String) neuralNetConfig.get(NeuralNetInterface.OUTPUT_DIRECTORY_ENTRY);
-        
+
         // Create the neural net
         NeuralNetInterface neuralNet = getNeuralNet(neuralNetType);
         if (neuralNet == null) {

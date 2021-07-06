@@ -4,6 +4,8 @@ include 'extjsdk'
 include 'udpSource'
 include 'CSVSource'
 include 'testConnector'
+include 'SenseLinkConnector'
+include 'SenseNebulaConnector'
 if (System.env.EASY_MODBUS_LOC) {
     include 'EasyModbusSource' 
 }

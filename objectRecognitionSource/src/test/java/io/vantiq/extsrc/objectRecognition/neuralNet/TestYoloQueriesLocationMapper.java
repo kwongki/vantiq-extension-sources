@@ -59,18 +59,15 @@ public class TestYoloQueriesLocationMapper extends NeuralNetTestBase {
         vantiq.setAccessToken(testAuthToken);
     }
 
-    @SuppressWarnings("PMD.JUnit4TestShouldUseAfterAnnotation")
     @AfterClass
     public static void tearDown() {
         if (core != null) {
             core.stop();
             core = null;
         }
-        if (vantiq != null && vantiq.isAuthenticated()) {
-            deleteSource(vantiq);
-            deleteFilesFromVantiq();
-        }
+        deleteSource(vantiq);
         deleteDirectory(OUTPUT_DIR);
+        deleteFilesFromVantiq();
     }
 
     @After
@@ -82,9 +79,7 @@ public class TestYoloQueriesLocationMapper extends NeuralNetTestBase {
             core.stop();
             core = null;
         }
-        if (vantiq != null && vantiq.isAuthenticated()) {
-            deleteSource(vantiq);
-        }
+        deleteSource(vantiq);
     }
 
     @Test

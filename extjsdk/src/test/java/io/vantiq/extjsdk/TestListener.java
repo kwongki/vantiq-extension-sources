@@ -9,8 +9,8 @@
 
 package io.vantiq.extjsdk;
 
-//Authors: Alex Blumer, Namir Fawaz, Fred Carter
-//Email: support@vantiq.com
+//Author: Alex Blumer
+//Email: alex.j.blumer@gmail.com
 
 
 import java.util.LinkedHashMap;
@@ -19,7 +19,7 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import okhttp3.MediaType;
-import okio.ByteString;
+import okhttp3.ResponseBody;
 
 /**
  * A listener that contains methods to create sample responses and send those messages to itself, and getters for
@@ -29,8 +29,7 @@ public class TestListener extends ExtensionWebSocketListener {
     public TestListener(ExtensionWebSocketClient client) {
         super(client);
     }
-
-    FalseWebSocket falseWebSocket = new FalseWebSocket();
+    
     public Handler<Response> getAuthHandler() {
         return authHandler;
     }
@@ -49,176 +48,164 @@ public class TestListener extends ExtensionWebSocketListener {
     public Handler<ExtensionServiceMessage> getReconnectHandler() {
         return reconnectHandler;
     }
-
-    public static final ObjectMapper mapper = new ObjectMapper();
     
     /**
      * Makes the listener receive a response specifying either a successful or failed authentication
      * @param success   Whether the authentication response should respond as a success 
      */
     public void receiveAuthenticationResponse(boolean success) {
-        this.onMessage(falseWebSocket, createAuthenticationResponse(success));
+        this.onMessage(createAuthenticationResponse(success));
     }
-
     /**
      * Makes the listener receive a configuration message, signifying a successful source connection. A failed
-     * connection is sent using {@link #errorMessage()}.
+     * connection is sent using {@link #sendErrorMessage}.
      * @param config        The configuration document that will be received
      * @param sourceName    The name of the source for which the connection succeeded.
      */
     public void receiveConfigResponse(Map<String,Object> config, String sourceName) {
-        this.onMessage(falseWebSocket, createConfigResponse(config, sourceName));
+        this.onMessage(createConfigResponse(config, sourceName));
     }
-
     /**
      * Makes the listener receive a Publish message
      * @param message       The object sent with the Publish
      * @param sourceName    The name of the source that sent the message
      */
     public void receivePublishMessage(Map<String,Object> message, String sourceName) {
-        this.onMessage(falseWebSocket, createPublishMessage(message, sourceName));
+        this.onMessage(createPublishMessage(message, sourceName));
     }
-
     /**
      * Makes the listener receive a Query message
      * @param message       The data to be received along with the Query message
      * @param sourceName    The name of the source that sent the message
      */
     public void receiveQueryMessage(Map<String,Object> message, String sourceName) {
-        this.onMessage(falseWebSocket, createQueryMessage(message, sourceName));
+        this.onMessage(createQueryMessage(message, sourceName));
     }
-
     /**
      * Makes the listener receive a reconnect message
      * @param sourceName    The name of the source that sent the message
      */
     public void receiveReconnectMessage(String sourceName) {
-        this.onMessage(falseWebSocket, createReconnectMessage(sourceName));
+        this.onMessage(createReconnectMessage(sourceName));
     }
-
     /**
      * Makes the listener receive an HTTP message.
      * @param resp The {@link Response} that the listener will receive
      */
     public void receiveHttpMessage(Response resp) {
-        this.onMessage(falseWebSocket, createHttpMessage(resp));
+        this.onMessage(createHttpMessage(resp));
     }
-
     /**
      * Makes the listener receive a simple HTTP error message. This is a {@link Response} with status code 400.
      */
     public void receiveErrorMessage() {
-        this.onMessage(falseWebSocket, errorMessage());
+        this.onMessage(errorMessage());
     }
+
+    public static MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+    public static final ObjectMapper mapper = new ObjectMapper();
     
     /**
      * Create a ResponseBody with a simple error. This is a {@link Response} with status code 400.
      * @return  A ResponseBody representing the message
      */
-    public static ByteString errorMessage() {
-        String errorString = "{\"status\":400}";
-        return ByteString.of(errorString.getBytes());
+    public static ResponseBody errorMessage() {
+        return ResponseBody.create(JSON, "{\"status\":400}");
     }
-
     /**
      * Creates a response specifying either a successful or failed authentication
      * @param success   Whether the authentication response should respond as a success
      * @return              A ResponseBody representing the message
      */
-    public static ByteString createAuthenticationResponse(boolean success) {
+    public static ResponseBody createAuthenticationResponse(boolean success) {
         if (success) {
-            return ByteString.of(sampleAuthResponseBody.getBytes());
+            return ResponseBody.create(JSON, sampleAuthResponseBody);
         }
         else {
             return errorMessage();
         }
     }
-
     /**
      * Creates a configuration message, signifying a successful source connection. A failed
-     * connection is sent using {@link #errorMessage()}.
+     * connection is sent using {@link #sendErrorMessage}.
      * @param config        The configuration document that will be received
      * @param sourceName    The name of the source for which the connection succeeded.
-     * @return              A ByteString representing the message
+     * @return              A ResponseBody representing the message
      */
-    public static ByteString createConfigResponse(Map<String, Object> config, String sourceName) {
+    public static ResponseBody createConfigResponse(Map<String,Object> config, String sourceName) {
         try {
             Map<String,Object> body = mapper.readValue(sampleConfigBody, Map.class);
             Map<String,Object> c = new LinkedHashMap<>();
             c.put("config", config);
             body.put("resourceId", sourceName);
             body.put("object", c);
-            return ByteString.of(mapper.writeValueAsBytes(body));
+            return ResponseBody.create(JSON, mapper.writeValueAsBytes(body));
         }
         catch (Exception e) {
-            return ByteString.EMPTY;
+            return null;
         }
     }
-
     /**
      * Creates a Publish message
      * @param message       The object sent with the Publish
      * @param sourceName    The name of the source that sent the message
-     * @return              A ByteString representing the message
+     * @return              A ResponseBody representing the message
      */
-    public static ByteString createPublishMessage(Map<String, Object> message, String sourceName) {
+    public static ResponseBody createPublishMessage(Map<String,Object> message, String sourceName) {
         try {
             Map<String,Object> body = mapper.readValue(samplePublishBody, Map.class);
             body.put("resourceId", sourceName);
             body.put("object", message);
-            return ByteString.of(mapper.writeValueAsBytes(body));
+            return ResponseBody.create(JSON, mapper.writeValueAsBytes(body));
         }
         catch (Exception e) {
-            return ByteString.EMPTY;
+            return null;
         }
     }
-
     /**
      * Creates a Query message
      * @param message       The data to be received along with the Query message
      * @param sourceName    The name of the source that sent the message
-     * @return              A ByteString representing the message
+     * @return              A ResponseBody representing the message
      */
-    public static ByteString createQueryMessage(Map<String, Object> message, String sourceName) {
+    public static ResponseBody createQueryMessage(Map<String,Object> message, String sourceName) {
         try {
             Map<String,Object> body = mapper.readValue(sampleQueryBody, Map.class);
             body.put("resourceId", sourceName);
             body.put("object", message);
-            return ByteString.of(mapper.writeValueAsBytes(body));
+            return ResponseBody.create(JSON, mapper.writeValueAsBytes(body));
         }
         catch (Exception e) {
-            return ByteString.EMPTY;
+            return null;
         }
     }
-
     /**
      * Creates an HTTP message.
      * @param resp The {@link Response} that the listener will receive
-     * @return              A ByteString representing the message
+     * @return              A ResponseBody representing the message
      */
-    public static ByteString createHttpMessage(Response resp) {
+    public static ResponseBody createHttpMessage(Response resp) {
         try {
-            return ByteString.of(mapper.writeValueAsBytes(resp));
+            return ResponseBody.create(JSON, mapper.writeValueAsBytes(resp));
         }
         catch (Exception e) {
-            return ByteString.EMPTY;
+            return null;
         }
     }
-
     /**
      * Creates a reconnect message
      * @param sourceName    Name of the source that sent the message
-     * @return              A ByteString representing the message
+     * @return              A ResponseBody representing the message
      */
-    public static ByteString createReconnectMessage(String sourceName) {
+    public static ResponseBody createReconnectMessage(String sourceName) {
         try {
             Map<String,Object> body = new LinkedHashMap<>();
             body.put("resourceId", sourceName);
             body.put("op", ExtensionServiceMessage.OP_RECONNECT_REQUIRED);
-            return ByteString.of(mapper.writeValueAsBytes(body));
+            return ResponseBody.create(JSON, mapper.writeValueAsBytes(body));
         }
         catch (Exception e) {
-            return ByteString.EMPTY;
+            return null;
         }
     }
     

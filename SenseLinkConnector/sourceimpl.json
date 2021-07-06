@@ -1,0 +1,7 @@
+{
+    "name" : "SENSELINK_SOURCE",
+    "baseType" : "EXTENSION",
+    "verticle" : "service:extensionSource",
+    "config" : {}
+ }
+ 

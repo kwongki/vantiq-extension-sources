@@ -10,7 +10,8 @@
 package io.vantiq.extjsdk;
 
 //Author: Alex Blumer
-//Email: support@vantiq.com
+//Email: alex.j.blumer@gmail.com
+
 
 import java.io.IOException;
 import java.util.Map;

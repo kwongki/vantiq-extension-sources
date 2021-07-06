@@ -13,6 +13,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -110,7 +111,7 @@ public class YoloProcessor extends NeuralNetUtils implements NeuralNetInterface2
     private static final String SAVED_RESOLUTION = "savedResolution";
     private static final String LONG_EDGE = "longEdge";
     private static final String UPLOAD_AS_IMAGE = "uploadAsImage";
-
+    private static final String FILTER_DETECTIONS = "filterDetections";     // CKK
 
     // Constants for Query Parameter options
     private static final String NN_OUTPUT_DIR = "NNoutputDir";
@@ -124,6 +125,14 @@ public class YoloProcessor extends NeuralNetUtils implements NeuralNetInterface2
         setup(neuralNetConfig, sourceName, modelDirectory, authToken, server);
         try {
             objectDetector = new ObjectDetector(threshold, pbFile, labelsFile, metaFile, anchorArray, imageUtil, outputDir, labelImage, saveRate, vantiq, sourceName);
+            
+            // CKK - Added 11-06-2021
+            if (neuralNetConfig.get(FILTER_DETECTIONS) instanceof ArrayList) {
+                objectDetector.setDetectionFilter((ArrayList) neuralNetConfig.get(FILTER_DETECTIONS));
+            } else {
+                log.info("CKK:: filterDetections not ArrayList");
+            }
+            
         } catch (Exception e) {
             throw new Exception(this.getClass().getCanonicalName() + ".yoloBackendSetupError: " 
                     + "Failed to create new ObjectDetector", e);
@@ -169,6 +178,8 @@ public class YoloProcessor extends NeuralNetUtils implements NeuralNetInterface2
        if (neuralNet.get(THRESHOLD) instanceof Number) {
            Number threshNum = (Number) neuralNet.get(THRESHOLD);
            float tempThresh = threshNum.floatValue();
+           
+           log.info("CKK:: setting threshold value = " + tempThresh);
            if (0 <= tempThresh && tempThresh <= 1) {
                threshold = tempThresh;
            } else if (0 <= tempThresh && tempThresh <= 100) {
@@ -346,13 +357,17 @@ public class YoloProcessor extends NeuralNetUtils implements NeuralNetInterface2
         }
 
         after = System.currentTimeMillis();
-        log.debug("Image processing time for source " + sourceName + ": {}.{} seconds"
+        log.debug("---- Image processing time for source >>> " + sourceName + " <<< : {}.{} seconds -----"
                 , (after - before) / 1000, String.format("%03d", (after - before) % 1000));
+        log.info("CKK:: # of foundObjects = " + foundObjects.size());
         
+
         // Save filename, or mark it as null if images are not saved
         if (objectDetector.lastFilename == null) {
+            //log.info("CKK:: setting lastFilename to NULL");
             results.setLastFilename(null);
-        } else {
+        } else { 
+            //log.debug("CKK:: Detected objects of interest");
             results.setLastFilename("objectRecognition/" + sourceName + '/' + objectDetector.lastFilename);
         }
         results.setResults(foundObjects);

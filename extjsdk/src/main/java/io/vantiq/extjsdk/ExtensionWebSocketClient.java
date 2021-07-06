@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2021 Vantiq, Inc.
+ * Copyright (c) 2018 Vantiq, Inc.
  *
  * All rights reserved.
  * 
@@ -9,19 +9,17 @@
 
 package io.vantiq.extjsdk;
 
-// Authors: Alex Blumer, Namir Fawaz, Fred Carter
-// Email: support@vantiq.com
+// Author: Alex Blumer
+// Email: alex.j.blumer@gmail.com
 
 // For decoding of the messages received
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 // WebSocket imports
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.WebSocket;
+import okhttp3.*;
+import okhttp3.ws.WebSocket;
+import okhttp3.ws.WebSocketCall;
 
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,10 +27,17 @@ import java.util.Map;
 import java.util.concurrent.*;
 import java.util.Queue;
 
+// CKK -- Added 14-06-2021
+import java.util.Timer;
+import java.util.TimerTask;
+import java.io.IOException;
+import okio.Buffer;
+import java.time.Duration;
+import java.time.Instant;
+
 import com.google.common.collect.EvictingQueue;
 
 // Logging
-import okio.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,114 +49,81 @@ public class ExtensionWebSocketClient {
     /**
      * The code for a query response where more data will be sent.
      */
-    public static final int QUERY_CHUNK_CODE = 100;
-
+    public static final int QUERY_CHUNK_CODE    = 100;
     /**
      * The code for a query response where data is sent and no more is coming.
      */
-    public static final int QUERY_DATA_CODE = 200;
-
+    public static final int QUERY_DATA_CODE     = 200;
     /**
      * The code for a query response where no data is sent and no more is coming.
      */
-    public static final int QUERY_NODATA_CODE = 204;
-
-    /**
-     * The default port value to run the TCP Probe Server Socket.
-     */
-    public static final int DEFAULT_TCP_PROBE_PORT = 8000;
-
+    public static final int QUERY_NODATA_CODE   = 204;
     /**
      * The default max queue size of the failedMessageQueue
      */
     private static final int DEFAULT_FAILED_MESSAGE_QUEUE_SIZE = 25;
-
     /**
      * The env var used to overwrite default queue size
      */
     private static final String FAILED_MESAGE_QUEUE_SIZE = "FAILED_MESSAGE_QUEUE_SIZE";
-
     /**
      * An {@link ObjectMapper} used to transform objects into JSON before sending
      */
     private ObjectMapper mapper = new ObjectMapper();
-
     /**
      * The WebSocket used to talk to the Vantiq deployment. null when no connection is established
      */
     WebSocket webSocket = null;
-
-    /**
-     * The semaphore used to manage sending source notifications back to Vantiq.
-     */
+    
     Semaphore outstandingNotifications = null;
-
     /**
      * The name of the source this client is connected to.
      */
     private String sourceName;
-
     /**
      * An Slf4j logger
      */
     private final Logger log;
-
     /**
      * The listener that receives and interprets responses from the Vantiq deployment for this client's connection.
      */
     ExtensionWebSocketListener listener;
-
     /**
      * A {@link CompletableFuture} that will return true when connected over a websocket, and false when the connection
      * is closed or has failed
      */
     CompletableFuture<Boolean> webSocketFuture;
-
     /**
      * A {@link CompletableFuture} that will return true when authenticated with Vantiq, and false when the WebSocket
      * connection is closed or has failed
      */
     CompletableFuture<Boolean> authFuture;
-
     /**
      * A {@link CompletableFuture} that will return true when connected to source {@code sourceName}, and false when the
      * WebSocket connection is closed or has failed
      */
     CompletableFuture<Boolean> sourceFuture;
-
-    /**
-     * A {@link CompletableFuture} that actively listens for incoming TCP messages on the specified port. This functions
-     * as the readiness/liveness checks configured through K8s.
-     */
-    private CompletableFuture<Void> probeFuture;
-
-    /**
-     * The Server Socket used to connect to the specified port and listen for inbound TCP messages sent by K8s. These
-     * messages function as readiness/liveness checks.
-     */
-    private ServerSocket livenessSocket = null;
-
     /**
      * Whether it should automatically send a connection message after receiving a reconnect message
      */
     boolean autoReconnect = false;
-
     /**
      * The data to be used for authentication. This will be either a {@link String} containing an authentication token or
      * a {@link Map} containing the username and password.
      */
     Object authData;
-
     /**
      * An {@link Handler} that is called when the websocket connection is closed
      */
     Handler<ExtensionWebSocketClient> closeHandler;
-
     /**
      * A {@link Queue} that is used as an internal queue to store messages that failed to send to Vantiq because
      * of a dropped connection. Once a reconnect is successful, the queued messages will be resent.
      */
     Queue<Object> failedMessageQueue;
+
+    // CKK -- Added 14-06-2021
+    Timer keepAliveTimer;
 
     /**
      * Obtain the {@link ExtensionWebSocketListener} listening to this client's source on Vantiq. Necessary to set
@@ -201,67 +173,13 @@ public class ExtensionWebSocketClient {
     }
 
     /**
-     * Initializes the Server Socket and probeFuture to actively listen for incoming TCP messages from the K8s
-     * readiness/liveness probe.
+     * CKK: Helper method to use for resetting Semaphore. 
+     * This is to workaround sendNotification failing after websocket reconnects after timeout.
      */
-    @SuppressWarnings("InfiniteLoopStatement")
-    public synchronized void declareHealthy() {
-        // Only reinitialize things if we have to, otherwise we just leave things running
-        if (probeFuture != null && livenessSocket != null && !livenessSocket.isClosed()) {
-            return;
+    public void resetSemaphore() {
+        if (outstandingNotifications == null) {
+            outstandingNotifications = new Semaphore(5, true);
         }
-
-        Integer port = Utils.obtainTCPProbePort();
-        if (port == null) {
-            port = DEFAULT_TCP_PROBE_PORT;
-        }
-
-        try {
-            livenessSocket = new ServerSocket(port);
-            probeFuture = CompletableFuture.runAsync(() -> {
-                while (true) {
-                    try {
-                        livenessSocket.accept();
-                    } catch (IOException e) {
-                        log.error("An error occurred while attempting to listen for TCP Probe messages.", e);
-                    }
-                }
-            });
-        } catch (IOException e) {
-            log.error("An exception occurred while trying to initialize the TCP Probe Listener, which may result in " +
-                    "the connector being marked 'unhealthy'.", e);
-        }
-    }
-
-    /**
-     * Cancels the probeFuture, and sets it to null. This kills the ServerSocket, which will indicate to K8s that the
-     * connector is not ready/healthy.
-     */
-    public synchronized void declareUnhealthy() {
-        // First we cancel the probeFuture and nullify it
-        if (probeFuture != null) {
-            probeFuture.cancel(true);
-            probeFuture = null;
-        }
-
-        // Then we close the ServerSocket and nullify it
-        if (livenessSocket != null && !livenessSocket.isClosed()) {
-            try {
-                livenessSocket.close();
-            } catch (IOException e) {
-                log.error("An error occurred when trying to close the Server Socket.", e);
-            }
-        }
-        livenessSocket = null;
-    }
-
-    /**
-     * Returns the probeFuture
-     */
-    public boolean isMarkedHealthy() {
-        CompletableFuture<Void> localProbeFuture = probeFuture;
-        ServerSocket localLivenessSocket = livenessSocket;
-        return localProbeFuture != null && localLivenessSocket != null && !localLivenessSocket.isClosed();
     }
 
     /**
@@ -278,7 +196,63 @@ public class ExtensionWebSocketClient {
     public CompletableFuture<Boolean> initiateFullConnection(String url, String token) {
         initiateWebsocketConnection(url);
         authenticate(token);
-        return connectToSource();
+        // CKK -- Modified 14-Jun-2021
+        CompletableFuture<Boolean> connectSuccess = connectToSource();
+        try {
+            if (connectSuccess!=null && connectSuccess.get(10, TimeUnit.SECONDS) ) {
+                // Start keepAlive Ping thread
+                if (keepAliveTimer != null) {
+                    keepAliveTimer.cancel();
+                    keepAliveTimer = null;
+                }
+        
+                keepAliveTimer = new Timer("ExtWSClientPingTimer");                
+
+                TimerTask aliveTask = new TimerTask() {
+                    Instant startTime = null;
+
+                    @Override
+                    public void run() {
+                        //log.info("Trying to Ping KeepAlive Message!!!");
+                        if (webSocket !=null) {
+                            try {
+                                Buffer pingBuf = new Buffer();
+
+                                if (startTime == null) {
+                                    startTime = Instant.now();
+                                    pingBuf.writeUtf8("Ping from ExtSrc --> Vantiq ..." + startTime.toString());
+                                } else {
+                                    Instant currentInstant = Instant.now();
+                                    Duration interval = Duration.between(startTime, currentInstant);
+
+                                    //every one hour send a timestamp message as ping, else send empty ping message
+                                    if (interval.getSeconds() >= 3600) {
+                                        startTime = currentInstant;
+                                        pingBuf.writeUtf8("Ping from ExtSrc --> Vantiq ... " + currentInstant.toString());
+                                    } else {
+                                        pingBuf.writeUtf8("");
+                                    }
+                                }
+
+                                //pingBuf.writeUtf8("Ping from Ext Source!");
+                                webSocket.sendPing(pingBuf);
+                            } catch (IOException ioe) {
+                                log.error("Error trying to ping Vantiq Server from ExtensionWebSocketClient: ", ioe);
+                            }
+                        }
+                            
+                    }
+                };
+                keepAliveTimer.schedule(aliveTask, 100, 120000);
+
+            } else {
+                log.info("ExtWSClientPingTimer:: Not Connected.....");
+            }
+        // CKK -- end of modifications
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            log.error("Could not reconnect to source within 10 seconds: ", e);
+        }
+        return connectSuccess;
     }
 
     /**
@@ -295,19 +269,13 @@ public class ExtensionWebSocketClient {
             webSocketFuture = new CompletableFuture<>();
 
             // Start the connection attempt
-            OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
+            OkHttpClient client = new OkHttpClient.Builder()
                     .readTimeout(0, TimeUnit.MILLISECONDS)
-                    .writeTimeout(0, TimeUnit.MILLISECONDS);
-
-            boolean sendPings = Utils.obtainSendPingStatus();
-            if (sendPings) {
-                clientBuilder.pingInterval(5000, TimeUnit.MILLISECONDS);
-            }
-
-            OkHttpClient client = clientBuilder.build();
-
-            Request request = new Request.Builder().url(validifyUrl(url)).build();
-            webSocket = client.newWebSocket(request, listener);
+                    .writeTimeout(0, TimeUnit.MILLISECONDS)
+                    .build();
+            WebSocketCall.create(client, new Request.Builder()
+                    .url(validifyUrl(url))
+                    .build()).enqueue(listener);
         }
         return webSocketFuture;
     }
@@ -384,6 +352,9 @@ public class ExtensionWebSocketClient {
         ExtensionServiceMessage msg = new ExtensionServiceMessage("");
         msg.fromMap(m);
         if (isConnected()) {
+            //if (outstandingNotifications == null) log.info("CKK: outstandingNotifications semaphore is null");
+            //else log.info("CKK: Semaphore is not null!");
+
             Semaphore localOutstandingNotifications = outstandingNotifications;
             try {
                 localOutstandingNotifications.acquire();
@@ -398,6 +369,7 @@ public class ExtensionWebSocketClient {
                 throw e;
             }
         } else {
+            log.info("Adding failed message to Queue...");
             failedMessageQueue.add(msg);
         }
     }
@@ -518,7 +490,7 @@ public class ExtensionWebSocketClient {
             byte[] bytes = mapper.writeValueAsBytes(obj);
             synchronized (this) {
                 if (webSocket != null) {
-                    this.webSocket.send(ByteString.of(bytes));
+                    this.webSocket.sendMessage(RequestBody.create(WebSocket.BINARY, bytes));
                 }
             }
         }
@@ -532,6 +504,7 @@ public class ExtensionWebSocketClient {
      */
     public void flushQueue() {
         int currentQueueSize = failedMessageQueue.size();
+        //log.info("CKK: Flushing Queue.... size = " + currentQueueSize);
         for (int i = 0; i < currentQueueSize; i++) {
             Object obj = failedMessageQueue.poll();
             send(obj);
@@ -797,6 +770,7 @@ public class ExtensionWebSocketClient {
      */
     public void stop() {
         // Saving and nulling before closing so EWSListener can know when it is closed by the client 
+        //log.info("CKK: Inside stop() .... ");
         WebSocket socket = webSocket;
         webSocket = null;
         outstandingNotifications = null;
@@ -811,10 +785,6 @@ public class ExtensionWebSocketClient {
                 }
             }
         }
-
-        // Calling declareUnhealthy to make sure the TCP Listener is not left open
-        declareUnhealthy();
-
         synchronized (this) {
             // Make sure anything still using these futures know that they are no longer valid
             if (webSocketFuture != null) {

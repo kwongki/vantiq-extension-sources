@@ -9,13 +9,13 @@
 
 package io.vantiq.extjsdk;
 
-//Authors: Alex Blumer, Namir Fawaz, Fred Carter
-//Email: support@vantiq.com
+//Author: Alex Blumer
+//Email: alex.j.blumer@gmail.com
 
-import okhttp3.Request;
-import okhttp3.WebSocket;
+import okhttp3.ws.WebSocket;
+import okio.Buffer;
+import okhttp3.RequestBody;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,8 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-import okio.ByteString;
-import org.jetbrains.annotations.NotNull;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -33,7 +31,7 @@ import org.junit.Test;
 import static org.junit.Assert.fail;
 
 
-public class TestExtensionWebSocketClient extends ExtjsdkTestBase {
+public class TestExtensionWebSocketClient extends ExtjsdkTestBase{
     
     // Note: testing of connections occurs in TestExtensionWebSocketListener, as more of the relevant interactions occur
     // through ExtensionWebSocketListener
@@ -42,21 +40,14 @@ public class TestExtensionWebSocketClient extends ExtjsdkTestBase {
     String srcName;
     String queryAddress;
     FalseWebSocket socket;
-    File serverConfigFile;
     
     @Before
-    public void setup() throws IOException {
+    public void setup() {
         srcName = "src";
         socket = new FalseWebSocket();
         client = new OpenExtensionWebSocketClient(srcName); // OpenExtensionWebSocketClient just makes a few functions public
         client.webSocket = socket;
         queryAddress = "gobbledygook";
-
-        // Make initial Utils.obtainServerConfig() call so that we don't get errors later on
-        serverConfigFile = new File("server.config");
-        serverConfigFile.createNewFile();
-        serverConfigFile.deleteOnExit();
-        Utils.obtainServerConfig();
     }
     
     @After
@@ -65,7 +56,6 @@ public class TestExtensionWebSocketClient extends ExtjsdkTestBase {
         client = null;
         socket = null;
         queryAddress = null;
-        serverConfigFile.delete();
     }
     
     @Test
@@ -287,7 +277,7 @@ public class TestExtensionWebSocketClient extends ExtjsdkTestBase {
         
         // Should make sourceConnection be recreated
         client.setAutoReconnect(true);
-        client.getListener().onMessage(client.webSocket, TestListener.createReconnectMessage(""));
+        client.getListener().onMessage(TestListener.createReconnectMessage(""));
 
         assert !client.isConnected();
         assert !client.getSourceConnectionFuture().isDone(); 
@@ -367,7 +357,7 @@ public class TestExtensionWebSocketClient extends ExtjsdkTestBase {
         newClient.webSocketFuture = CompletableFuture.completedFuture(true);
         newClient.authFuture = CompletableFuture.completedFuture(true);
         newClient.sourceFuture = CompletableFuture.completedFuture(false);
-        newClient.listener.onMessage(client.webSocket, testListener.createConfigResponse(new LinkedHashMap<>(), srcName));
+        newClient.listener.onMessage(testListener.createConfigResponse(new LinkedHashMap<>(), srcName));
         assert newClient.failedMessageQueue.size() == 0;
 
         // Now lets do the same thing with a query
@@ -385,7 +375,7 @@ public class TestExtensionWebSocketClient extends ExtjsdkTestBase {
         newClient.webSocketFuture = CompletableFuture.completedFuture(true);
         newClient.authFuture = CompletableFuture.completedFuture(true);
         newClient.sourceFuture = CompletableFuture.completedFuture(false);
-        newClient.listener.onMessage(client.webSocket, testListener.createConfigResponse(new LinkedHashMap<>(), srcName));
+        newClient.listener.onMessage(testListener.createConfigResponse(new LinkedHashMap<>(), srcName));
         assert newClient.failedMessageQueue.size() == 0;
     }
 
@@ -403,66 +393,6 @@ public class TestExtensionWebSocketClient extends ExtjsdkTestBase {
         assert socket.compareData("resourceId", srcName);
     }
 
-    @Test
-    public void testTCPProbeListener() {
-        // Setup a client and listener and mark things "connected"
-        FalseClient newClient = new FalseClient(srcName);
-        TestListener testListener = new TestListener(newClient);
-        newClient.listener = testListener;
-
-        newClient.initiateWebsocketConnection("unused");
-        newClient.authenticate("");
-        newClient.connectToSource();
-        newClient.webSocketFuture = CompletableFuture.completedFuture(true);
-        newClient.authFuture = CompletableFuture.completedFuture(true);
-        newClient.sourceFuture = CompletableFuture.completedFuture(true);
-
-
-        // Now lets try initialize the TCP Probe Listener, and make sure things still look alright
-        try {
-            newClient.declareHealthy();
-        } catch (Exception e) {
-            fail("Initializing TCP Probe should not throw exception.");
-        }
-        assert newClient.isOpen();
-        assert newClient.isAuthed();
-        assert newClient.isConnected();
-
-        // Now we'll cancel the listener, and again check that we didn't mess up anything else
-        newClient.declareUnhealthy();
-        assert newClient.isOpen();
-        assert newClient.isAuthed();
-        assert newClient.isConnected();
-
-        // Finally, lets initialize a new one
-        try {
-            newClient.declareHealthy();
-        } catch (Exception e) {
-            fail("Initializing TCP Probe should not throw exception.");
-        }
-        assert newClient.isOpen();
-        assert newClient.isAuthed();
-        assert newClient.isConnected();
-
-        // And cancel it to be complete
-        newClient.declareUnhealthy();
-        assert newClient.isOpen();
-        assert newClient.isAuthed();
-        assert newClient.isConnected();
-
-        // One last test to prove that we don't throw exceptions when declaring healthy/unhealthy multiple times
-        try {
-            newClient.declareHealthy();
-            newClient.declareHealthy();
-            newClient.declareHealthy();
-            newClient.declareUnhealthy();
-            newClient.declareUnhealthy();
-            newClient.declareUnhealthy();
-        } catch (Exception e) {
-            fail("No exceptions should be thrown regardless of when or how the healthy/unhealthy methods are called.");
-        }
-    }
-
 // ============================== Helper functions ==============================
     private void markWsConnected(boolean success) {
         client.webSocketFuture = CompletableFuture.completedFuture(success);
@@ -477,7 +407,7 @@ public class TestExtensionWebSocketClient extends ExtjsdkTestBase {
     }
     
     // Merely makes several private functions public
-    private static class OpenExtensionWebSocketClient extends ExtensionWebSocketClient {
+    private class OpenExtensionWebSocketClient extends ExtensionWebSocketClient{
         public OpenExtensionWebSocketClient(String sourceName) {
             super(sourceName);
         }
@@ -492,17 +422,23 @@ public class TestExtensionWebSocketClient extends ExtjsdkTestBase {
         
         Map<String,Object> lastData = null;
         boolean messageReceived = false;
-
+        
+        
         @Override
-        public boolean send(ByteString bytes) {
+        public void sendMessage(RequestBody body) {
+            Buffer buf = new Buffer();
             try {
-                lastData = mapper.readValue(bytes.toByteArray(), Map.class);
+                body.writeTo(buf);
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
+            try {
+                lastData = mapper.readValue(buf.inputStream(), Map.class);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            
             messageReceived = true;
-            return messageReceived;
         }
         
         public boolean compareData(String key, Object expectedVal) {
@@ -515,33 +451,9 @@ public class TestExtensionWebSocketClient extends ExtjsdkTestBase {
         }
 
         @Override
-        public boolean close(int code, String reason) {
-            client.getListener().onClosed(client.webSocket, code, reason);
-            return true;
-        }
-
-        //================================ Necessary to implement WebSocket ================================
-
+        public void sendPing(Buffer payload) throws IOException {}
         @Override
-        public void cancel() {
-
-        }
-
-        @Override
-        public long queueSize() {
-            return 0;
-        }
-
-        @Override
-        public boolean send(@NotNull String s) {
-            return false;
-        }
-
-        @NotNull
-        @Override
-        public Request request() {
-            return new Request.Builder().build();
-        }
+        public void close(int code, String reason) throws IOException {client.getListener().onClose(code,reason);}
     }
     
     public static Object getTransformVal(Map map, String loc) {

@@ -22,7 +22,7 @@ ext {
     metricsVersion = '4.0.2'
     rxjavaVersion = '2.1.11'
     slf4jApiVersion = '1.7.25'
-    okhttpVersion = '4.9.1'
+    okhttpVersion = '3.4.1'
 }
 
 // Copies the README and licenses into the jar
@@ -33,7 +33,9 @@ jar.from(".") {
 }
 
 repositories {
-    mavenCentral()
+    maven {
+        url "https://dl.bintray.com/vantiq/maven"
+    }
 }
 
 configurations {
@@ -71,15 +73,14 @@ dependencies {
     compile "org.slf4j:slf4j-api:1.7.25"
     compile "org.apache.logging.log4j:log4j-slf4j-impl:2.11.0"
 
-    compile "org.apache.commons:commons-lang3:3.12.0"
 
     compile "com.squareup.okhttp3:okhttp:${okhttpVersion}"
+    compile "com.squareup.okhttp3:okhttp-ws:${okhttpVersion}"
     compile "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
 
     testCompile group: 'junit', name: 'junit', version: '4.12'
-
-    // Used in tests
-    testCompile "io.vantiq:vantiq-sdk:${vantiqSDKVersion}"
+    // Used for uploading documents (images) to VANTIQ with VANTIQ SDK
+    testCompile 'io.vantiq:vantiq-sdk:1.0.24'
 
     // Used to create EvictingQueue for failed messages queue
     implementation 'com.google.guava:guava:23.0'

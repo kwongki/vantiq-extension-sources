@@ -29,6 +29,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 import static edu.ml.tensorflow.Config.MEAN;
 
@@ -66,6 +67,8 @@ public class ObjectDetector {
     private Session normalizerSession;
     private String normalizerInputName;
     private String normalizerOutputName;
+
+    private ArrayList filterDetectionList = null;
     
     public String lastFilename;
 
@@ -156,6 +159,15 @@ public class ObjectDetector {
     }
 
     /**
+     * Set the ArrayList of detection types of interest. Only detection types listed here will be emmitted and images uploaded to Vantiq.
+     * @param listDetectionOfInterest
+     */
+    public void setDetectionFilter(ArrayList listDetectionOfInterest) {
+        if (listDetectionOfInterest != null)
+            this.filterDetectionList = listDetectionOfInterest;
+    }
+
+    /**
      * Detect objects on the given image
      * <br>Edited to return the results as a map and conditionally save the image
      * @param image     The image in jpeg format
@@ -167,11 +179,45 @@ public class ObjectDetector {
      */
     public List<Map<String, ?>> detect(final byte[] image, Date timestamp) {
         try (Tensor<Float> normalizedImage = normalizeImage(image)) {
-            List<Recognition> recognitions = YOLOClassifier.getInstance(threshold, anchorArray, frameSize).classifyImage(executeYOLOGraph(normalizedImage), labels);
+
+            // CKK -- Modified 11-06-2021
+            LOGGER.info("CKK:: threshold set at = " + threshold);
+            List<Recognition> recognitions_prefilter = YOLOClassifier.getInstance(threshold, anchorArray, frameSize).classifyImage(executeYOLOGraph(normalizedImage), labels);
             BufferedImage buffImage = imageUtil.createImageFromBytes(image);
             
+            //CKK: Added 11-06-2021
+            //Changes here to prevent image files from being uploaded if no detection type in filterDetectionList is found
+            // if filterDetectionList is not set or empty, assume any detection type will be allowed
+            //LOGGER.info("CKK:: inside detect :: recognitions = " + recognitions.toString());
+            boolean haveDetectionOfInterest = false;
+            List<Recognition> recognitions = new ArrayList();
+
+            if (filterDetectionList != null && filterDetectionList.size() > 0) {
+                for (int i=0; i<recognitions_prefilter.size(); i++) {
+                    Recognition currentRec = recognitions_prefilter.get(i);
+                    if (filterDetectionList.contains(currentRec.getTitle())) {
+                        haveDetectionOfInterest = true;
+                        recognitions.add(currentRec);
+                        //break;
+                    }
+                    /**
+                    if (currentRec.getTitle().equals("person")) {
+                        foundPerson = true;
+                        break;
+                    }
+                    **/
+                }
+            } else {
+                haveDetectionOfInterest = true;
+                recognitions = recognitions_prefilter;
+            }
+            LOGGER.info("CKK:: recognition count = " + recognitions.size());
+            //if (haveDetectionOfInterest) LOGGER.info("CKK:: detected person!");
+            //else LOGGER.info("CKK: no person detected!");
+
             // Saves an image every saveRate frames
-            if (imageUtil.saveImage && ++frameCount >= saveRate) {
+            // CKK: Modified 11-06-2021 to use haveDetectionOfInterest
+            if (imageUtil.saveImage && ++frameCount >= saveRate && haveDetectionOfInterest) {
                 String fileName = format.format(timestamp);
                 if (lastFilename != null && lastFilename.contains(fileName)) {
                     fileName = fileName + "(" + ++fileCount + ").jpg";
@@ -346,7 +392,7 @@ public class ObjectDetector {
         	
         	jsonRecognitions.add(map);
         	
-        	LOGGER.info("{}", map);
+        	//LOGGER.info("{}", map);
         }
         
         return jsonRecognitions;

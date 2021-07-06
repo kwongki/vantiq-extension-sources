@@ -148,6 +148,7 @@ public class NetworkStreamRetriever implements ImageRetrieverInterface {
         matrix.release();
         
         results.setImage(imageByte);
+        //log.info("CKK:: NetworkStreamRetriever.getImage() .... captureTime = " + captureTime.toString());
         results.setTimestamp(captureTime);
         
         after = System.currentTimeMillis();

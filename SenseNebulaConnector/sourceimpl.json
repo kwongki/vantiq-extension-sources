@@ -1,0 +1,7 @@
+{
+    "name" : "SENSENEBULA_SOURCE",
+    "baseType" : "EXTENSION",
+    "verticle" : "service:extensionSource",
+    "config" : {}
+ }
+ 

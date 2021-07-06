@@ -4,6 +4,13 @@
     <Console name="Console" target="SYSTEM_OUT">
       <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
     </Console>
+    <RollingFile name="RollingFile" filename="logs/objrec.log" filePattern="logs/objrec-%d{dd-MM-yyyy}.log.gz">
+      <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="250 MB"/>
+      </Policies>
+    </RollingFile>
     <!-- To save the log to a file, uncomment lines 8-10 and line 17. -->
     <!--<File name = "OutputFile" filename="output.log" append="false">
         <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
@@ -12,8 +19,10 @@
   <Loggers>
     <Logger name="io.vantiq.extsrc.objectRecognition" level="debug"/>
     <Logger name="io.vantiq.extjsdk" level="debug"/>
+    <Logger name="edu.ml.tensorflow.ObjectDetector" level="debug"/>
     <Root level="error">
       <AppenderRef ref="Console"/>
+      <AppenderRef ref="RollingFile"/>
       <!--<AppenderRef ref="OutputFile"/>-->
     </Root>
   </Loggers>

@@ -4,7 +4,6 @@ import io.vantiq.client.VantiqResponse;
 import org.junit.AfterClass;
 import org.junit.Test;
 
-import java.io.File;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,15 +16,12 @@ public class TestWithServer extends RoundTripTestBase {
     
     @AfterClass
     public static void cleanup() {
-        // If we started up, shut down nicely.  Otherwise, pass w/o issue
-        if (vantiq != null && vantiq.isAuthenticated()) {
-            deleteType();
-            deleteRule();
-            deleteSource();
-            deleteSourceImpl();
-        }
+        deleteType();
+        deleteRule();
+        deleteSource();
+        deleteSourceImpl();
     }
-
+    
     @Test
     public void testNotificationEnMasse() throws Exception {
 
@@ -42,13 +38,6 @@ public class TestWithServer extends RoundTripTestBase {
         assert checkRuleExists();
         
         ExtensionWebSocketClient client = new ExtensionWebSocketClient(SOURCE_NAME);
-
-        // Make initial Utils.obtainServerConfig() call so that we don't get errors later on
-        File serverConfigFile = new File("server.config");
-        serverConfigFile.createNewFile();
-        serverConfigFile.deleteOnExit();
-        Utils.obtainServerConfig();
-
         client.initiateFullConnection(testVantiqServer, testAuthToken).get();
 
         List<String> simpleList = new ArrayList<>();

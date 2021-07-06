@@ -25,21 +25,16 @@ public class TestParallelProcessing extends NeuralNetTestBase {
 
     @BeforeClass
     public static void classSetup() {
-        if (testVantiqServer != null && testAuthToken != null) {
-            vantiq = new io.vantiq.client.Vantiq(testVantiqServer);
-            vantiq.setAccessToken(testAuthToken);
-        }
+        vantiq = new io.vantiq.client.Vantiq(testVantiqServer);
+        vantiq.setAccessToken(testAuthToken);
     }
 
-    @SuppressWarnings("PMD.JUnit4TestShouldUseAfterAnnotation")
     @AfterClass
     public static void tearDown() {
         // Double check that everything was deleted from VANTIQ
-        if (vantiq != null && vantiq.isAuthenticated()) {
-            deleteSource(vantiq);
-            deleteType(vantiq);
-            deleteRule(vantiq);
-        }
+        deleteSource(vantiq);
+        deleteType(vantiq);
+        deleteRule(vantiq);
     }
 
     @Test

@@ -331,8 +331,10 @@ public class ObjectRecognitionCore {
             }
             NeuralNetResults results;
             if (localNeuralNet instanceof NeuralNetInterface2) {
+                //log.info("CKK:: doing NeuralNetInterface2 ... ");
                 results = ((NeuralNetInterface2) localNeuralNet).processImage(processingParams, image);
             } else {
+                //log.info("CKK:: doing NeuralNetInterface ... ");
                 results = localNeuralNet.processImage(image);
             }
             
@@ -343,8 +345,13 @@ public class ObjectRecognitionCore {
 
                 // If suppressNullValues is set to true, then skip sending message results list is empty
                 if (suppressEmptyNeuralNetResults) {
+                    //log.info("CKK:: Content of Neural Net results (message) = " + message.toString());
+
                     if (message.get("results") instanceof List && ((List) message.get("results")).size() == 0) {
                         return;
+                    } else {
+                        // CKK: print contents of message
+                        //log.info("CKK:: Content of Neural Net results (message) = " + message.toString());
                     }
                 }
                 client.sendNotification(message);
@@ -449,7 +456,11 @@ public class ObjectRecognitionCore {
     * @param replyAddress   The replyAddress used to send a query response.
     */
    public void uploadLocalImages(Map<String, ?> request, String replyAddress) {       
-       Map<String,Object> parsedParameterResult = handleQueryParameters(request, replyAddress, UPLOAD);
+       
+        //CKK: 
+        //log.info("CKK: Inside uploadLocalImages .... ");
+
+        Map<String,Object> parsedParameterResult = handleQueryParameters(request, replyAddress, UPLOAD);
        if (parsedParameterResult == null) {
            return;
        }
