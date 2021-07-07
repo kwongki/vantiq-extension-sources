@@ -6,6 +6,12 @@
 
 This document outlines the SenseNebula Connector. 
 
+Run this from vantiq-extension-sources directory:
+
+`./gradlew SenseNebulaConnector:run --args='./server.config'`
+
+Please change the authToken in `server.config` file.
+
 _The rest to be updated...._
 
 
