@@ -29,6 +29,13 @@ applicationDistribution.from("src/main/resources") {
     into "logConfig"
 }
 
+applicationDistribution.from("src/scripts") {
+    include "install.sh"
+    include "start_app_template.sh"
+    include "uninstall.sh"
+    into "."
+}
+
 tasks.withType(Test) {
     if (rootProject.hasProperty("SenseNebulaConnectorEnvVarName")) {
         systemProperty "SenseNebulaConnectorEnvVarName", rootProject.findProperty("SenseNebulaConnectorEnvVarName") ?: "empty"

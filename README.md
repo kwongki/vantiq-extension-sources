@@ -1,4 +1,4 @@
-# vantiq-extension-sources
+# vantiq-extension-sources (SenseTime Integration)
 
 > Note:  Use Extension Sources requires VANTIQ Version 1.23 or later.
 
@@ -7,49 +7,13 @@
  
 # Repository Overview
 
-This repository contains the source code for various VANTIQ Extension Sources as well as SDKs for building these sources.  VANTIQ Extension Sources provide a means by which VANTIQ sources can operate outside of (but related to) a VANTIQ installation.
+This repository contains source code for VANTIQ Extension Sources for SenseNebula Edge Box, SenseLink AIoT Platform, and a forked version of the Object Recognition Source.
 
-VANTIQ Extension Sources support the creation of VANTIQ source types.
-Within a VANTIQ system, a *source* is the means by which the VANTIQ system communicates with other systems.
-Each VANTIQ source has a *type* or *implementation*.
-The source type determines defines the type(s) of system(s) with which the source can communicate.
-The VANTIQ system has a variety of source types included,
-but individual enterprises' situations will require connectivity to other systems.
-These other systems may be other commercial or standard systems,
-or they may be a *home-grown* system.
-In any case,
-the set of source types needs to be extensible.
+There is also a forked version of the Extension Source SDK based on okHttp version 3.4.1 (before the upgrade on main vantiq-extension-sources repo)
 
-VANTIQ Extension Sources provide this extensibility.
-Working with the VANTIQ system,
-an extension source can be constructed and operated outside the VANTIQ installation.
-This allows these sources to fully participate in VANTIQ edge or full installations.
+This is created for a Demo Project.
 
-## Repository Contents & Conventions
-
-The various directories within this repository represent either SDKs to build extension sources or extension sources themselves.
-By convention, SDKs will end with `sdk`.
-
-Each directory will contain a README (or README.md) file that describes the contents, and either contains or directs the reader toward appropriate documentation.
-Each directory should contain a LICENSE (or LICENSE.md) file that outlines the license for the code as well as any packages used.
-
-Bugs, Issues, Enhancement requests should be reported using the GitHub *issues* tab.
-In any such report or request,
-please make clear the extension source or SDK to which the issue applies.
-Including the top level directory in the issue's `Title` is most expeditious way of doing so.
-See [issue #33](https://github.com/Vantiq/vantiq-extension-sources/issues/33) for an example.
-
-Some extensions sources present will be written and supported by VANTIQ;
-others are contributed by other parties.
-
-In general,
-branches other than `master` are considered development or experimental branches.
-Modulo any warnings or caveats in the README,
-things in the `master` branch should be considered usable.
-
-The repository is set up to require reviews of pull requests (PRs) going into master.
-The primary purpose here is to maintain some level of consistency.
-
+_The information from this point onwards is same as main repo._
 # Extension Sources Overview
 
 Extension sources are used to allow VANTIQ to talk to various other systems.

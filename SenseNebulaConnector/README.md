@@ -1,19 +1,16 @@
 # Overview
 
-**Note: This forked branch was updated with older version codes from extjsdk before the upgrade to okhttp3 version**
-**Use only for PrimusTech COC project. Code to be migrated to latest version of extjsdk** 
+**_Note: This forked branch was updated with older version codes from extjsdk before the upgrade to okhttp3 version (3.4.1)._**
+
+**_Use only for PrimusTech COC project. Code to be migrated to latest version of extjsdk_** 
 
 
 This document outlines the SenseNebula Connector. 
+The Connector takes care of communication between VANTIQ and SenseNebula AIE Edge Box. It is implemented to perform the following functions:
 
-Run this from vantiq-extension-sources directory:
-
-`./gradlew SenseNebulaConnector:run --args='./server.config'`
-
-Please change the authToken in `server.config` file.
-
-_The rest to be updated...._
-
+* Authenticate with username/password to SenseNebula Edge Box
+* Subscribe to WebSocket endpoint from SenseNebula Edge Box and listen for event messages to send backto Vantiq
+* Register a new facial recognition record in SenseNebula Edge Box via a Query command. New record will be created in database defined in **FR_dbName** attribute in [Source Config](#sourceConfig)
 
 
 # Prerequisites <a name="pre" id="pre"></a>
@@ -21,44 +18,45 @@ _The rest to be updated...._
 An understanding of the VANTIQ Extension Source SDK is assumed. Please read the [Extension Source README.md](../README.md) 
 for more information.
 
-The user must [define the TestConnector Source implementation](../README.md#-defining-a-typeimplementation) in the 
-Vantiq IDE. For an example of the definition, please see the 
-[*testConnectorImpl.json*](src/test/resources/testConnectorImpl.json) file located in the *src/test/resources* directory.
+The user should use the source definition file to install the Extension Source in namespace to be used. See ``sourceimpl.json``.
 
-Additionally, an example project named *testConnectorExample.zip* can be found in the *src/test/resources* directory.
-
-*   To activate the polling feature, make sure to include both the "filenames" and "pollingInterval" source
-configurations.
 
 # Setting Up Your Machine <a name="machine" id="machine"></a>
 
 ## Repository Contents
 
-*   **TestConnectorMain** -- The main function for the program. Connects to sources as specified in the configuration 
+*   **SenseNebulaConnectorMain** -- The main function for the program. Connects to sources as specified in the configuration 
 file.
-*   **TestConnectorCore** -- Does the work of reading data from files or environment variables, and sends it back to 
-Vantiq.
-*   **TestConnectorHandleConfiguration** -- Processes the source configuration and calls the code to poll for data from 
-files if configured to do so.
+*   **SenseNebulaConnectorCore** -- Does the work of authentication with SenseNebula Edge Box, Subscribe to Websocket endpoint, listening to event messages, and sends it back to Vantiq.
+*   **SenseNebulaConnectorHandleConfiguration** -- Processes the source configuration
 
 ## How to Run the Program
 
 1.  Clone this repository (vantiq-extension-sources) and navigate into `<repo location>/vantiq-extension-sources`.
-2.  Run `./gradlew testConnector:assemble`.
-3.  Navigate to `<repo location>/vantiq-extension-sources/testConnector/build/distributions`. The zip and tar files both 
+2.  Run `./gradlew SenseNebulaConnector:assemble`.
+3.  Navigate to `<repo location>/vantiq-extension-sources/SenseNebulaConnector/build/distributions`. The zip and tar files both 
 contain the same files, so choose whichever you prefer.
 4.  Uncompress the file in the location that you would like to install the program.
-6.  Run `<install location>/testConnector/bin/testConnector` with a local server.config file or specifying the 
-[server config file](#serverConfig) as the first argument. Note that the `server.config` file can be placed in the 
-`<install location>/testConnector/serverConfig/server.config` or `<install location>/testConnector/server.config` 
-locations.
+6.  Run `<install location>/bin/SenseNebulaConnector` with a local server.config file or specifying the 
+[server config file](#serverConfig) as the first argument. Note that the `server.config` file can be placed in `<install location>/server.config`.
+
+To run the program directory from the repository directory:
+1. Run this `./gradlew SenseNebulaConnector:run --args='./server.config'`
+
+
 
 ## Logging
-To change the logging settings, edit the logging config file `<install location>/testConnector/src/main/resources/log4j2.xml`,
+To change the logging settings, edit the logging config file `<install location>/SenseNebulaConnector/src/main/resources/log4j2.xml`,
 which is an [Apache Log4j configuration file.](https://logging.apache.org/log4j/2.x/manual/configuration.html). The logger 
 name for each class is the class's fully qualified class name, *e.g.* "io.vantiq.extjsdk.ExtensionWebSocketClient".  
 
-## Server Config File
+The project is configured with 2 daily rolling log files:
+* `./logs/nebula.log`
+* `./logs/raw_nebula_events.log`
+
+These log files are meant for capturing debugging details, can be turned off in production mode, especially `raw_nebula_events.log` which will capture raw event messages from SenseNebula box in JSON format. These can be used for simulating message playbacks for debugging purposes.
+
+## Server Config File <a name="serverConfig" id="serverConfig"></a>
 (Please read the [SDK's server config documentation](../extjsdk/README.md#serverConfig) first.)
 
 ### Vantiq Options
@@ -69,145 +67,57 @@ name for each class is the class's fully qualified class name, *e.g.* "io.vantiq
 
 # Setting Up Your Vantiq Source <a name="vantiq" id="vantiq"></a>
 
-## Source Configuration
+## Source Configuration <a name="sourceConfig" id="sourceConfig"></a>
 
 To set up the Source in the Vantiq system, you will need to add a Source to your project. Please check the [Prerequisites](#pre) 
 to make sure you have properly added a Source Implementation definition to your Vantiq namespace. Once this is complete, 
-you can select TestConnector (or whatever you named your Source Implementation) as the Source Type. You will then need 
+you can select SenseNebulaConnector (or whatever you named your Source Implementation) as the Source Type. You will then need 
 to fill out the Source Configuration Document.
 
 The Configuration document may look similar to the following example:
 
     {
-       "testConfig": {
-          "general": {
-             "filenames": ["file1.txt", "file2.txt", "file3.txt"],
-             "pollingInterval": 5000
-          }
-       }
+        "senseNebulaConfig": {
+            "general": {
+                "FR_dbName": "Visitor",
+                "senseNebula_URL": "http://localhost:8080/",
+                "password": "xxxxx",
+                "username": "xxxxx"
+            }
+        }
     }
 
-### Options Available for testConfig
-**Note:** The "testConfig" and "general" portions must be included in the source configuration, but they can be left
+### Options Available for senseNebulaConfig
+**Note:** The "senseNebulaConfig" and "general" portions must be included in the source configuration, but they can be left
 empty.
-*   **filenames**: Optional. A list of String filenames from which to read data. The data will be sent back to Vantiq
-as a notification arriving on the source.
-*   **pollingInterval** Required if a list of `filenames` is provided. This parameter specifies the polling interval 
- (in milliseconds) for reading data from the list of `filenames`. If not specified, then no polling of data will occur.
+*   **FR_dbName**: Required. The name of facial recognition database in SenseNebula Edge Box that is used for holding new records and performing facial matches.
+*   **senseNebula_URL**: Required. URL to reach SenseNebula Edge Box
+*   **password**: Required. 
+*   **username**: Required.
 
-Read the [Publish Statements](#publish) section to see how to process the returned data.
 
 ## Select Statements
 
-Both Select and Publish statements can be used to retrieve data from files or environment variables. Using select 
-statements will return the results (or any errors) directly do the caller. To retrieve data, the select statement must 
-include a `WITH` clause that contains a `filenames` and/or an `environmentVariables` parameter. At least one of these 
-parameters must be provided. Both parameters are defined as lists of Strings, representing filenames or environment 
-variable names, respectively.
+The current implementation allows Select statements to be used for adding a new facial recognition record onto SenseNebula Edge Box. 
 
-The following example uses a Vail Select Statement to retrieve data from files and environment variables:
+The following shows the example using a Vail Select Statement:
 ```
-PROCEDURE queryTestConnector()
-
-try { 
-    SELECT * FROM SOURCE TestConnector1 as results WITH
-        filenames: ["testFile1.txt", "testFile2.txt"],
-        environmentVariables: ["MY_ENV_VAR1", "MY_ENV_VAR2"]
-    
-    var fileResponse = results.files
-    var envVarResponse = results.environmentVariables
-    
-    for (file in fileResponse) {
-        // Could do work with object here but we just log as an example
-        log.info(file.toString())
-    }
-    
-    for (envVar in envVarResponse) {
-        // Could do work with object here but we just log as an example
-        log.info(envVar.toString())
-    }
-} catch (error) {
-    // Catching any errors and throwing the exception.
-    exception(error.code, error.message)
-}
+    Var result = SELECT * FROM SOURCE SenseNebulaSource WITH 
+        command : "addVisitor",
+        name : _name,
+        uid : _uid,
+        imageURL : _photo_url
 ```
+parameters:
+- command: "addVisitor"
+- name: Name of the person to be added into database
+- uid: unique user ID
+- imageURL: publicly accessible URL of profile image stored on Vantiq Document Store.
 
 ### Query Response Format
-The query will return data for the files and/or environment variables as follows:
 
-```
-{
-    files: {
-        testFile1.txt: "The data in testFile1.txt",
-        testFile2.txt: "The data in testFile1.txt"
-    },
-    environmentVariables {
-        MY_ENV_VAR1: "The data in MY_ENV_VAR1",
-        MY_ENV_VAR2: "The data in MY_ENV_VAR2"
-    }
-}
-```
+_to be updated_
 
-## Publish Statements <a name="publish" id="publish"></a>
-
-The publish statements behave almost identically to the select statements, except that the data is sent to Vantiq as a 
-notification arriving on the source. This data can be processed using a Rule. The publish request uses the same two 
-optional parameters as the select statement.
-
-The following example uses a Vail Publish Statement to retrieve data from files and environment variables:
-
-```
-PROCEDURE publishToTestConnector()
-
-var publishParams = {
-    filenames: ["testFile1.txt", "testFile2.txt"],
-    environmentVariables: ["MY_ENV_VAR1", "MY_ENV_VAR2"]
-}
-
-PUBLISH publishParams TO SOURCE TestConnector1
-```
-
-The following example defines a Rule that could be used to process the data returned by the previous Publish example:
-```
-RULE listenFromTestConnector
-
-WHEN EVENT OCCURS ON "/sources/TestConnector1" as sourceEvent
-
-// Grab the actual value from the event
-var message = sourceEvent.value
-
-var fileResponse = message.files
-var envVarResponse = message.environmentVariables
-
-for (file in fileResponse) {
-    // Could do work with object here but we just log as an example
-    log.info(file.toString())
-}
-
-for (envVar in envVarResponse) {
-    // Could do work with object here but we just log as an example
-    log.info(envVar.toString())
-}
-```
-
-### Publish Response Format
-The response for publish requests should be identical to that of the select statements, except the data will arrive as 
-a notification from the source.
-
-## Error Messages
-
-Query errors originating from the connector will include the appropriate fully-qualified class name with a small 
-descriptor attached, and the message will include the exception or invalid request that caused it.
-
-## Testing <a name="testing" id="testing"></a>
-
-To run all the tests, you must add two properties to your _gradle.properties_ file in the _~/.gradle_ directory. These 
-properties specify an existing file and environment variable that can be used for testing. The properties can be set in 
-as the `gradle.properties` file as follows:
-```
-    TestConnectorFilename=<putFilenameHere>
-    TestConnectorEnvVarName=<putEnvVarNameHere>
-```
 
 ## Licensing
 The source code uses the [MIT License](https://opensource.org/licenses/MIT).  
