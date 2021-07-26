@@ -724,7 +724,7 @@ public class SenseNebulaConnectorCore {
             if (client.isOpen() &&  client.isAuthed()) { 
                 log.info("CKK: sendBackEvent ....");
                 
-                rawEventLog.debug((new JSONObject(event)).toString());
+                rawEventLog.debug((new JSONObject(event)).toString() + ",");
 
                 int parts_count = 1;
                 String currentTimeStamp = LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
